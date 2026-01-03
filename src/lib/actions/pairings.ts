@@ -15,6 +15,8 @@ interface PairingsResult {
   success: boolean;
   recommendations?: Omit<Recommendation, 'id' | 'session_id' | 'created_at'>[];
   sessionId?: string;
+  menuImageUrl?: string;
+  wineListImageUrl?: string;
   error?: string;
 }
 
@@ -61,13 +63,15 @@ export async function generatePairingsAction(input: GeneratePairingsInput): Prom
       occasion: input.occasion,
     });
 
-    // Clean up uploaded images (fire and forget)
-    supabase.storage.from('captures').remove([menuFileName, wineFileName]).catch(console.error);
+    // Don't delete images yet - we need them for refinement
+    // They'll be cleaned up eventually or we can add a cleanup job later
 
     return {
       success: true,
       recommendations: result.recommendations,
       sessionId: result.sessionId,
+      menuImageUrl: menuUrl.publicUrl,
+      wineListImageUrl: wineUrl.publicUrl,
     };
   } catch (error) {
     console.error('Generate pairings error:', error);
@@ -82,6 +86,9 @@ interface RefinePairingsInput {
   sessionId: string;
   refinement: string;
   previousRecommendations: Omit<Recommendation, 'id' | 'session_id' | 'created_at'>[];
+  menuImageUrl: string;
+  wineListImageUrl: string;
+  preferences: PreferencesInput;
 }
 
 export async function refinePairingsAction(input: RefinePairingsInput): Promise<PairingsResult> {
@@ -91,12 +98,17 @@ export async function refinePairingsAction(input: RefinePairingsInput): Promise<
       sessionId: input.sessionId,
       refinement: input.refinement,
       previousRecommendations: input.previousRecommendations,
+      menuImageUrl: input.menuImageUrl,
+      wineListImageUrl: input.wineListImageUrl,
+      preferences: input.preferences,
     });
 
     return {
       success: true,
       recommendations: result.recommendations,
       sessionId: result.sessionId,
+      menuImageUrl: input.menuImageUrl,
+      wineListImageUrl: input.wineListImageUrl,
     };
   } catch (error) {
     console.error('Refine pairings error:', error);

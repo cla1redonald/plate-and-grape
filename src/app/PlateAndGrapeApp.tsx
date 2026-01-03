@@ -28,6 +28,7 @@ export default function PlateAndGrapeApp() {
   const [cameraTarget, setCameraTarget] = useState<'menu' | 'wine' | null>(null);
   const [recommendations, setRecommendations] = useState<Omit<Recommendation, 'id' | 'session_id' | 'created_at'>[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [imageUrls, setImageUrls] = useState<{ menu: string | null; wineList: string | null }>({ menu: null, wineList: null });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +76,10 @@ export default function PlateAndGrapeApp() {
       if (result.success && result.recommendations) {
         setRecommendations(result.recommendations);
         setSessionId(result.sessionId || null);
+        setImageUrls({ 
+          menu: result.menuImageUrl || null, 
+          wineList: result.wineListImageUrl || null 
+        });
         setScreen('results');
       } else {
         setError(result.error || 'Failed to generate pairings');
@@ -90,7 +95,7 @@ export default function PlateAndGrapeApp() {
   };
 
   const handleRefine = async (refinement: string) => {
-    if (!sessionId) return;
+    if (!sessionId || !imageUrls.menu || !imageUrls.wineList) return;
 
     setLoading(true);
     setError(null);
@@ -100,6 +105,9 @@ export default function PlateAndGrapeApp() {
         sessionId,
         refinement,
         previousRecommendations: recommendations,
+        menuImageUrl: imageUrls.menu,
+        wineListImageUrl: imageUrls.wineList,
+        preferences,
       });
 
       if (result.success && result.recommendations) {

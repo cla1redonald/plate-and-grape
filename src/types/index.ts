@@ -67,6 +67,9 @@ export interface RefinementRequest {
   sessionId: string;
   refinement: string;
   previousRecommendations: Omit<Recommendation, 'id' | 'session_id' | 'created_at'>[];
+  menuImageUrl: string;
+  wineListImageUrl: string;
+  preferences: PreferencesInput;
 }
 
 // UI state types

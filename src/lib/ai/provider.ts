@@ -57,26 +57,53 @@ export class ClaudeProvider implements AIProvider {
   }
 
   async refinePairings(request: RefinementRequest): Promise<PairingResponse> {
-    const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      system: `You are a sommelier and food pairing expert. The user has received recommendations and wants to refine them.
+    const systemPrompt = `You are a sommelier and food pairing expert. The user has received recommendations and wants to refine them.
+
+USER PREFERENCES:
+- Cuisine styles they enjoy: ${request.preferences.cuisine_styles.join(', ') || 'No specific preference'}
+- Price sensitivity: ${request.preferences.price_sensitivity}
+- Allergies (MUST AVOID): ${request.preferences.allergies.join(', ') || 'None'}
+- Dislikes: ${request.preferences.dislikes.join(', ') || 'None'}
       
 Previous recommendations were:
 ${request.previousRecommendations.map((r, i) => `${i + 1}. ${r.food_name} with ${r.wine_name}`).join('\n')}
 
-Provide 3 new recommendations based on the user's refinement request. Respond in JSON format only.`,
+Based on the user's refinement request, provide 3 NEW and DIFFERENT recommendations from the menu and wine list shown in the images. Respond in JSON format only.`;
+
+    const response = await this.client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      system: systemPrompt,
       messages: [
         {
           role: 'user',
-          content: `Please refine the recommendations: "${request.refinement}"
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'url',
+                url: request.menuImageUrl,
+              },
+            },
+            {
+              type: 'image',
+              source: {
+                type: 'url',
+                url: request.wineListImageUrl,
+              },
+            },
+            {
+              type: 'text',
+              text: `Please refine the recommendations based on this request: "${request.refinement}"
+
+Look at the menu and wine list images again and provide 3 NEW pairings that better match what the user wants.
           
 Respond with exactly this JSON structure:
 {
   "recommendations": [
     {
-      "food_name": "Dish name from menu",
-      "wine_name": "Wine name from list",
+      "food_name": "Exact dish name from the menu",
+      "wine_name": "Exact wine name from the list",
       "reasoning": "2-3 sentences explaining why this pairing works for taste and value",
       "price_indicator": "£ or ££ or £££",
       "rank": 1
@@ -84,6 +111,8 @@ Respond with exactly this JSON structure:
     // ... 2 more recommendations with rank 2 and 3
   ]
 }`,
+            },
+          ],
         },
       ],
     });

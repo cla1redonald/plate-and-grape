@@ -63,7 +63,7 @@ export function RefinementInput({ onRefine, loading }: RefinementInputProps) {
           onKeyDown={handleKeyDown}
           placeholder="Show me lighter options..."
           disabled={loading}
-          className="flex-1 px-4 py-3 rounded-full border border-[#E5E5E5] focus:outline-none focus:border-[#722F37] focus:ring-2 focus:ring-[#722F37]/20 disabled:opacity-50"
+          className="flex-1 px-4 py-3 rounded-full border border-[#E5E5E5] bg-white text-[#2D2D2D] placeholder-[#9B9B9B] focus:outline-none focus:border-[#722F37] focus:ring-2 focus:ring-[#722F37]/20 disabled:opacity-50"
         />
         <button
           onClick={handleSubmit}
