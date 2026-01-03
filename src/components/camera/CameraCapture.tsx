@@ -104,9 +104,9 @@ export function CameraCapture({ onCapture, onClose, label }: CameraCaptureProps)
   }, [stream]);
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
+    <div className="fixed inset-0 bg-black z-50 flex flex-col" style={{ height: '100dvh' }}>
       {/* Header */}
-      <header className="flex items-center justify-between p-4 bg-black/50">
+      <header className="flex items-center justify-between p-4 bg-black/50 safe-area-top">
         <button onClick={onClose} className="p-2 text-white">
           <X size={24} />
         </button>
@@ -117,7 +117,7 @@ export function CameraCapture({ onCapture, onClose, label }: CameraCaptureProps)
       </header>
 
       {/* Camera View / Preview */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative overflow-hidden">
         {error ? (
           <div className="flex items-center justify-center h-full p-4">
             <div className="text-center">
@@ -147,8 +147,8 @@ export function CameraCapture({ onCapture, onClose, label }: CameraCaptureProps)
         <canvas ref={canvasRef} className="hidden" />
       </div>
 
-      {/* Controls */}
-      <div className="p-6 bg-black/50">
+      {/* Controls - fixed to bottom with safe area */}
+      <div className="p-6 bg-black/50 pb-safe">
         {capturedImage ? (
           <div className="flex gap-4">
             <Button onClick={retake} variant="secondary" className="flex-1">
