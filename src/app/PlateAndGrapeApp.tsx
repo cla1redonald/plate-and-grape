@@ -7,7 +7,7 @@ import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { CaptureButton } from '@/components/camera/CaptureButton';
 import { CameraCapture } from '@/components/camera/CameraCapture';
 import { PreferencesForm } from '@/components/preferences/PreferencesForm';
-import { RecommendationCard } from '@/components/recommendations/RecommendationCard';
+import { RecommendationCarousel } from '@/components/recommendations/RecommendationCarousel';
 import { RefinementInput } from '@/components/refinement/RefinementInput';
 import { getPreferencesAction, savePreferencesAction } from '@/lib/actions/preferences';
 import { generatePairingsAction, refinePairingsAction } from '@/lib/actions/pairings';
@@ -196,23 +196,23 @@ export default function PlateAndGrapeApp() {
         )}
 
         {/* Recommendations */}
-        <div className="p-4 space-y-4 pb-48">
+        <div className="py-4 pb-48">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
+            <div className="mx-4 mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
               {error}
             </div>
           )}
 
-          {recommendations.map((rec, index) => (
-            <RecommendationCard
-              key={index}
-              rank={rec.rank}
-              foodName={rec.food_name}
-              wineName={rec.wine_name}
-              reasoning={rec.reasoning}
-              priceIndicator={rec.price_indicator}
-            />
-          ))}
+          {/* Success Header */}
+          <div className="px-4 mb-4 text-center">
+            <p className="text-sm text-[#9B9B9B]">
+              <span className="animate-sparkle inline-block">✨</span>
+              {' '}Found your perfect pairings{' '}
+              <span className="animate-sparkle inline-block" style={{ animationDelay: '0.5s' }}>✨</span>
+            </p>
+          </div>
+
+          <RecommendationCarousel recommendations={recommendations} />
         </div>
 
         {/* Refinement Input */}
