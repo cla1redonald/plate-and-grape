@@ -68,7 +68,12 @@ USER PREFERENCES:
 Previous recommendations were:
 ${request.previousRecommendations.map((r, i) => `${i + 1}. ${r.food_name} with ${r.wine_name}`).join('\n')}
 
-Based on the user's refinement request, provide 3 NEW and DIFFERENT recommendations from the menu and wine list shown in the images. Respond in JSON format only.`;
+Based on the user's refinement request, provide 3 NEW and DIFFERENT recommendations from the menu and wine list shown in the images.
+
+If you cannot read the menu or wine list images, respond with:
+{"error": "unreadable", "message": "Brief description of what's wrong"}
+
+Otherwise, respond in JSON format only.`;
 
     const response = await this.client.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -136,7 +141,10 @@ IMPORTANT RULES:
 4. Consider both taste pairing AND value for money
 5. Provide exactly 3 recommendations ranked by how well they match the user's preferences
 
-Respond ONLY with valid JSON, no other text.`;
+If you cannot read the menu or wine list (image is blurry, too dark, or doesn't contain readable text), respond with:
+{"error": "unreadable", "message": "Brief description of what's wrong"}
+
+Otherwise, respond ONLY with valid JSON containing recommendations, no other text.`;
   }
 
   private buildUserPrompt(occasion?: string): string {
@@ -181,16 +189,26 @@ Respond with exactly this JSON structure:
     try {
       // Extract JSON from the response (handle potential markdown code blocks)
       let jsonText = content.text;
-      const jsonMatch = jsonText.match(/```json\s*([\s\S]*?)\s*```/) || 
+      const jsonMatch = jsonText.match(/```json\s*([\s\S]*?)\s*```/) ||
                         jsonText.match(/```\s*([\s\S]*?)\s*```/);
       if (jsonMatch) {
         jsonText = jsonMatch[1];
       }
 
       const parsed = JSON.parse(jsonText.trim());
-      
+
+      // Check for unreadable image error
+      if (parsed.error === 'unreadable') {
+        throw new Error(`Could not read the menu or wine list. ${parsed.message || 'Please try taking clearer photos with good lighting.'}`);
+      }
+
+      // Check if recommendations exist
+      if (!parsed.recommendations || !Array.isArray(parsed.recommendations) || parsed.recommendations.length === 0) {
+        throw new Error('No pairings found. Please ensure both images show a food menu and wine list.');
+      }
+
       // Validate and transform the response
-      const recommendations: Omit<Recommendation, 'id' | 'session_id' | 'created_at'>[] = 
+      const recommendations: Omit<Recommendation, 'id' | 'session_id' | 'created_at'>[] =
         parsed.recommendations.map((rec: {
           food_name: string;
           wine_name: string;
@@ -209,9 +227,13 @@ Respond with exactly this JSON structure:
         recommendations,
         sessionId: existingSessionId || crypto.randomUUID(),
       };
-    } catch {
+    } catch (error) {
+      // Re-throw user-friendly errors
+      if (error instanceof Error && (error.message.includes('Could not read') || error.message.includes('No pairings found'))) {
+        throw error;
+      }
       console.error('Failed to parse Claude response:', content.text);
-      throw new Error('Failed to parse AI response');
+      throw new Error('We couldn\'t understand the AI response. Please try again.');
     }
   }
 

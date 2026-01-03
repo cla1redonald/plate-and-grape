@@ -37,7 +37,7 @@ export async function generatePairingsAction(input: GeneratePairingsInput): Prom
 
     if (menuError) {
       console.error('Menu upload error:', menuError);
-      throw new Error('Failed to upload menu image');
+      throw new Error('Failed to upload menu photo. Please check your connection and try again.');
     }
 
     // Upload wine list image
@@ -47,7 +47,7 @@ export async function generatePairingsAction(input: GeneratePairingsInput): Prom
 
     if (wineError) {
       console.error('Wine upload error:', wineError);
-      throw new Error('Failed to upload wine list image');
+      throw new Error('Failed to upload wine list photo. Please check your connection and try again.');
     }
 
     // Get public URLs

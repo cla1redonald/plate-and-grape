@@ -12,7 +12,7 @@ import { RefinementInput } from '@/components/refinement/RefinementInput';
 import { getPreferencesAction, savePreferencesAction } from '@/lib/actions/preferences';
 import { generatePairingsAction, refinePairingsAction } from '@/lib/actions/pairings';
 import { PreferencesInput, Recommendation, CapturedImages, AppScreen } from '@/types';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, RotateCcw } from 'lucide-react';
 
 const defaultPreferences: PreferencesInput = {
   cuisine_styles: [],
@@ -168,15 +168,32 @@ export default function PlateAndGrapeApp() {
     return (
       <div className="min-h-screen bg-[#FAF7F2]">
         {/* Header */}
-        <header className="sticky top-0 bg-[#FAF7F2] border-b border-[#E5E5E5] px-4 py-3 flex items-center gap-3">
+        <header className="sticky top-0 bg-[#FAF7F2] border-b border-[#E5E5E5] px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={resetCapture}
+              className="p-2 -ml-2 hover:bg-white rounded-full transition-colors"
+            >
+              <ArrowLeft size={24} className="text-[#2D2D2D]" />
+            </button>
+            <h1 className="text-xl font-semibold text-[#2D2D2D]">Your Pairings</h1>
+          </div>
           <button
             onClick={resetCapture}
-            className="p-2 -ml-2 hover:bg-white rounded-full transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#722F37] hover:bg-white rounded-full transition-colors"
           >
-            <ArrowLeft size={24} className="text-[#2D2D2D]" />
+            <RotateCcw size={16} />
+            Start Over
           </button>
-          <h1 className="text-xl font-semibold text-[#2D2D2D]">Your Pairings</h1>
         </header>
+
+        {/* Loading overlay for refinement */}
+        {loading && (
+          <div className="fixed inset-0 bg-[#FAF7F2]/80 backdrop-blur-sm flex flex-col items-center justify-center z-30">
+            <div className="text-4xl mb-4 animate-bounce">🍷</div>
+            <p className="text-[#2D2D2D] font-medium">Refining your pairings...</p>
+          </div>
+        )}
 
         {/* Recommendations */}
         <div className="p-4 space-y-4 pb-48">
