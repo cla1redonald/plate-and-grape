@@ -21,7 +21,46 @@ export class ClaudeProvider implements AIProvider {
 
   async generatePairings(request: PairingRequest): Promise<PairingResponse> {
     const systemPrompt = this.buildSystemPrompt(request.preferences);
-    
+
+    // Build content array with all images
+    const content: Anthropic.MessageCreateParams['messages'][0]['content'] = [];
+
+    // Add all menu images
+    for (let i = 0; i < request.menuImageUrls.length; i++) {
+      content.push({
+        type: 'text',
+        text: `Food Menu (page ${i + 1} of ${request.menuImageUrls.length}):`,
+      });
+      content.push({
+        type: 'image',
+        source: {
+          type: 'url',
+          url: request.menuImageUrls[i],
+        },
+      });
+    }
+
+    // Add all wine list images
+    for (let i = 0; i < request.wineListImageUrls.length; i++) {
+      content.push({
+        type: 'text',
+        text: `Wine List (page ${i + 1} of ${request.wineListImageUrls.length}):`,
+      });
+      content.push({
+        type: 'image',
+        source: {
+          type: 'url',
+          url: request.wineListImageUrls[i],
+        },
+      });
+    }
+
+    // Add the user prompt
+    content.push({
+      type: 'text',
+      text: this.buildUserPrompt(request.occasion),
+    });
+
     const response = await this.client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2000,
@@ -29,26 +68,7 @@ export class ClaudeProvider implements AIProvider {
       messages: [
         {
           role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'url',
-                url: request.menuImageUrl,
-              },
-            },
-            {
-              type: 'image',
-              source: {
-                type: 'url',
-                url: request.wineListImageUrl,
-              },
-            },
-            {
-              type: 'text',
-              text: this.buildUserPrompt(request.occasion),
-            },
-          ],
+          content,
         },
       ],
     });
@@ -64,7 +84,7 @@ USER PREFERENCES:
 - Price sensitivity: ${request.preferences.price_sensitivity}
 - Allergies (MUST AVOID): ${request.preferences.allergies.join(', ') || 'None'}
 - Dislikes: ${request.preferences.dislikes.join(', ') || 'None'}
-      
+
 Previous recommendations were:
 ${request.previousRecommendations.map((r, i) => `${i + 1}. ${r.food_name} with ${r.wine_name}`).join('\n')}
 
@@ -75,34 +95,46 @@ If you cannot read the menu or wine list images, respond with:
 
 Otherwise, respond in JSON format only.`;
 
-    const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'url',
-                url: request.menuImageUrl,
-              },
-            },
-            {
-              type: 'image',
-              source: {
-                type: 'url',
-                url: request.wineListImageUrl,
-              },
-            },
-            {
-              type: 'text',
-              text: `Please refine the recommendations based on this request: "${request.refinement}"
+    // Build content array with all images
+    const content: Anthropic.MessageCreateParams['messages'][0]['content'] = [];
 
-Look at the menu and wine list images again and provide 3 NEW pairings that better match what the user wants.
-          
+    // Add all menu images
+    for (let i = 0; i < request.menuImageUrls.length; i++) {
+      content.push({
+        type: 'text',
+        text: `Food Menu (page ${i + 1} of ${request.menuImageUrls.length}):`,
+      });
+      content.push({
+        type: 'image',
+        source: {
+          type: 'url',
+          url: request.menuImageUrls[i],
+        },
+      });
+    }
+
+    // Add all wine list images
+    for (let i = 0; i < request.wineListImageUrls.length; i++) {
+      content.push({
+        type: 'text',
+        text: `Wine List (page ${i + 1} of ${request.wineListImageUrls.length}):`,
+      });
+      content.push({
+        type: 'image',
+        source: {
+          type: 'url',
+          url: request.wineListImageUrls[i],
+        },
+      });
+    }
+
+    // Add the refinement prompt
+    content.push({
+      type: 'text',
+      text: `Please refine the recommendations based on this request: "${request.refinement}"
+
+Look at ALL the menu and wine list images and provide 3 NEW pairings that better match what the user wants.
+
 Respond with exactly this JSON structure:
 {
   "recommendations": [
@@ -116,8 +148,16 @@ Respond with exactly this JSON structure:
     // ... 2 more recommendations with rank 2 and 3
   ]
 }`,
-            },
-          ],
+    });
+
+    const response = await this.client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content,
         },
       ],
     });
@@ -140,6 +180,7 @@ IMPORTANT RULES:
 3. Match price sensitivity: budget = cheapest good options, moderate = mid-range, premium = best regardless of price
 4. Consider both taste pairing AND value for money
 5. Provide exactly 3 recommendations ranked by how well they match the user's preferences
+6. Look at ALL pages of the menu and wine list - they may span multiple images
 
 If you cannot read the menu or wine list (image is blurry, too dark, or doesn't contain readable text), respond with:
 {"error": "unreadable", "message": "Brief description of what's wrong"}
@@ -149,8 +190,8 @@ Otherwise, respond ONLY with valid JSON containing recommendations, no other tex
 
   private buildUserPrompt(occasion?: string): string {
     const occasionText = occasion ? `\n\nOccasion/mood: ${occasion}` : '';
-    
-    return `Please analyze these images of a food menu and wine list. Recommend the 3 best food and wine pairings.${occasionText}
+
+    return `Please analyze ALL the food menu and wine list images above. Recommend the 3 best food and wine pairings.${occasionText}
 
 Respond with exactly this JSON structure:
 {

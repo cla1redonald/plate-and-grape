@@ -2,15 +2,16 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
-import { X, Camera, RotateCcw } from 'lucide-react';
+import { X, Camera, RotateCcw, Plus } from 'lucide-react';
 
 interface CameraCaptureProps {
   onCapture: (imageData: string) => void;
   onClose: () => void;
   label: string;
+  existingCount?: number;
 }
 
-export function CameraCapture({ onCapture, onClose, label }: CameraCaptureProps) {
+export function CameraCapture({ onCapture, onClose, label, existingCount = 0 }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -42,10 +43,18 @@ export function CameraCapture({ onCapture, onClose, label }: CameraCaptureProps)
     setCapturedImage(null);
   };
 
-  const confirmPhoto = () => {
+  const confirmAndClose = () => {
     if (capturedImage) {
       onCapture(capturedImage);
       onClose();
+    }
+  };
+
+  const confirmAndAddAnother = () => {
+    if (capturedImage) {
+      onCapture(capturedImage);
+      setCapturedImage(null);
+      // Camera will restart via useEffect
     }
   };
 
@@ -61,7 +70,7 @@ export function CameraCapture({ onCapture, onClose, label }: CameraCaptureProps)
   // Start camera on mount and when facing mode changes
   useEffect(() => {
     let mounted = true;
-    
+
     const initCamera = async () => {
       if (!capturedImage && mounted) {
         try {
@@ -103,6 +112,9 @@ export function CameraCapture({ onCapture, onClose, label }: CameraCaptureProps)
     };
   }, [stream]);
 
+  // Calculate total count after this photo
+  const newCount = existingCount + (capturedImage ? 1 : 0);
+
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col" style={{ height: '100dvh' }}>
       {/* Header */}
@@ -110,7 +122,12 @@ export function CameraCapture({ onCapture, onClose, label }: CameraCaptureProps)
         <button onClick={onClose} className="p-2 text-white">
           <X size={24} />
         </button>
-        <span className="text-white font-medium">{label}</span>
+        <div className="text-center">
+          <span className="text-white font-medium">{label}</span>
+          {existingCount > 0 && (
+            <span className="text-white/70 text-sm ml-2">({existingCount} captured)</span>
+          )}
+        </div>
         <button onClick={switchCamera} className="p-2 text-white">
           <RotateCcw size={24} />
         </button>
@@ -150,13 +167,30 @@ export function CameraCapture({ onCapture, onClose, label }: CameraCaptureProps)
       {/* Controls - fixed to bottom with safe area */}
       <div className="p-6 bg-black/50 pb-safe">
         {capturedImage ? (
-          <div className="flex gap-4">
-            <Button onClick={retake} variant="secondary" className="flex-1">
-              Retake
-            </Button>
-            <Button onClick={confirmPhoto} className="flex-1">
-              Use Photo
-            </Button>
+          <div className="space-y-3">
+            {/* Photo count indicator */}
+            <p className="text-center text-white/70 text-sm">
+              This will be photo {newCount} of your {label.toLowerCase()}
+            </p>
+
+            {/* Main actions */}
+            <div className="flex gap-3">
+              <Button onClick={retake} variant="secondary" className="flex-1">
+                Retake
+              </Button>
+              <Button onClick={confirmAndClose} className="flex-1">
+                Done
+              </Button>
+            </div>
+
+            {/* Add another option */}
+            <button
+              onClick={confirmAndAddAnother}
+              className="w-full py-3 flex items-center justify-center gap-2 text-white hover:bg-white/10 rounded-xl transition-colors"
+            >
+              <Plus size={20} />
+              <span>Add another page</span>
+            </button>
           </div>
         ) : (
           <button

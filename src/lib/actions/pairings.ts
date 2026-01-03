@@ -5,8 +5,8 @@ import { PreferencesInput, Recommendation } from '@/types';
 import { supabase } from '@/lib/db/supabase';
 
 interface GeneratePairingsInput {
-  menuImageBase64: string;
-  wineListImageBase64: string;
+  menuImagesBase64: string[];
+  wineListImagesBase64: string[];
   preferences: PreferencesInput;
   occasion?: string;
 }
@@ -15,63 +15,55 @@ interface PairingsResult {
   success: boolean;
   recommendations?: Omit<Recommendation, 'id' | 'session_id' | 'created_at'>[];
   sessionId?: string;
-  menuImageUrl?: string;
-  wineListImageUrl?: string;
+  menuImageUrls?: string[];
+  wineListImageUrls?: string[];
   error?: string;
+}
+
+async function uploadImage(base64Data: string, prefix: string): Promise<string> {
+  const fileName = `${prefix}-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+  const blob = base64ToBlob(base64Data);
+
+  const { error } = await supabase.storage
+    .from('captures')
+    .upload(fileName, blob, { contentType: 'image/jpeg' });
+
+  if (error) {
+    console.error(`Upload error for ${prefix}:`, error);
+    throw new Error(`Failed to upload ${prefix} photo. Please check your connection and try again.`);
+  }
+
+  const { data: urlData } = supabase.storage.from('captures').getPublicUrl(fileName);
+  return urlData.publicUrl;
 }
 
 export async function generatePairingsAction(input: GeneratePairingsInput): Promise<PairingsResult> {
   try {
-    // Upload images to Supabase Storage
-    const menuFileName = `menu-${Date.now()}.jpg`;
-    const wineFileName = `wine-${Date.now()}.jpg`;
+    // Upload all menu images
+    const menuImageUrls = await Promise.all(
+      input.menuImagesBase64.map((img, idx) => uploadImage(img, `menu-${idx}`))
+    );
 
-    // Convert base64 to blob
-    const menuBlob = base64ToBlob(input.menuImageBase64);
-    const wineBlob = base64ToBlob(input.wineListImageBase64);
-
-    // Upload menu image
-    const { error: menuError } = await supabase.storage
-      .from('captures')
-      .upload(menuFileName, menuBlob, { contentType: 'image/jpeg' });
-
-    if (menuError) {
-      console.error('Menu upload error:', menuError);
-      throw new Error('Failed to upload menu photo. Please check your connection and try again.');
-    }
-
-    // Upload wine list image
-    const { error: wineError } = await supabase.storage
-      .from('captures')
-      .upload(wineFileName, wineBlob, { contentType: 'image/jpeg' });
-
-    if (wineError) {
-      console.error('Wine upload error:', wineError);
-      throw new Error('Failed to upload wine list photo. Please check your connection and try again.');
-    }
-
-    // Get public URLs
-    const { data: menuUrl } = supabase.storage.from('captures').getPublicUrl(menuFileName);
-    const { data: wineUrl } = supabase.storage.from('captures').getPublicUrl(wineFileName);
+    // Upload all wine list images
+    const wineListImageUrls = await Promise.all(
+      input.wineListImagesBase64.map((img, idx) => uploadImage(img, `wine-${idx}`))
+    );
 
     // Generate pairings using AI
     const aiProvider = getAIProvider();
     const result = await aiProvider.generatePairings({
-      menuImageUrl: menuUrl.publicUrl,
-      wineListImageUrl: wineUrl.publicUrl,
+      menuImageUrls,
+      wineListImageUrls,
       preferences: input.preferences,
       occasion: input.occasion,
     });
-
-    // Don't delete images yet - we need them for refinement
-    // They'll be cleaned up eventually or we can add a cleanup job later
 
     return {
       success: true,
       recommendations: result.recommendations,
       sessionId: result.sessionId,
-      menuImageUrl: menuUrl.publicUrl,
-      wineListImageUrl: wineUrl.publicUrl,
+      menuImageUrls,
+      wineListImageUrls,
     };
   } catch (error) {
     console.error('Generate pairings error:', error);
@@ -86,8 +78,8 @@ interface RefinePairingsInput {
   sessionId: string;
   refinement: string;
   previousRecommendations: Omit<Recommendation, 'id' | 'session_id' | 'created_at'>[];
-  menuImageUrl: string;
-  wineListImageUrl: string;
+  menuImageUrls: string[];
+  wineListImageUrls: string[];
   preferences: PreferencesInput;
 }
 
@@ -98,8 +90,8 @@ export async function refinePairingsAction(input: RefinePairingsInput): Promise<
       sessionId: input.sessionId,
       refinement: input.refinement,
       previousRecommendations: input.previousRecommendations,
-      menuImageUrl: input.menuImageUrl,
-      wineListImageUrl: input.wineListImageUrl,
+      menuImageUrls: input.menuImageUrls,
+      wineListImageUrls: input.wineListImageUrls,
       preferences: input.preferences,
     });
 
@@ -107,8 +99,8 @@ export async function refinePairingsAction(input: RefinePairingsInput): Promise<
       success: true,
       recommendations: result.recommendations,
       sessionId: result.sessionId,
-      menuImageUrl: input.menuImageUrl,
-      wineListImageUrl: input.wineListImageUrl,
+      menuImageUrls: input.menuImageUrls,
+      wineListImageUrls: input.wineListImageUrls,
     };
   } catch (error) {
     console.error('Refine pairings error:', error);
@@ -124,11 +116,11 @@ function base64ToBlob(base64: string): Blob {
   const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
   const byteCharacters = atob(base64Data);
   const byteNumbers = new Array(byteCharacters.length);
-  
+
   for (let i = 0; i < byteCharacters.length; i++) {
     byteNumbers[i] = byteCharacters.charCodeAt(i);
   }
-  
+
   const byteArray = new Uint8Array(byteNumbers);
   return new Blob([byteArray], { type: 'image/jpeg' });
 }

@@ -52,8 +52,8 @@ export interface Recommendation {
 
 // API request/response types
 export interface PairingRequest {
-  menuImageUrl: string;
-  wineListImageUrl: string;
+  menuImageUrls: string[];
+  wineListImageUrls: string[];
   preferences: PreferencesInput;
   occasion?: string;
 }
@@ -67,15 +67,15 @@ export interface RefinementRequest {
   sessionId: string;
   refinement: string;
   previousRecommendations: Omit<Recommendation, 'id' | 'session_id' | 'created_at'>[];
-  menuImageUrl: string;
-  wineListImageUrl: string;
+  menuImageUrls: string[];
+  wineListImageUrls: string[];
   preferences: PreferencesInput;
 }
 
 // UI state types
 export interface CapturedImages {
-  menu: string | null;
-  wineList: string | null;
+  menu: string[];
+  wineList: string[];
 }
 
 export type AppScreen = 'capture' | 'loading' | 'results' | 'preferences';

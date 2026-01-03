@@ -24,11 +24,11 @@ const defaultPreferences: PreferencesInput = {
 export default function PlateAndGrapeApp() {
   const [screen, setScreen] = useState<AppScreen>('capture');
   const [preferences, setPreferences] = useState<PreferencesInput>(defaultPreferences);
-  const [capturedImages, setCapturedImages] = useState<CapturedImages>({ menu: null, wineList: null });
+  const [capturedImages, setCapturedImages] = useState<CapturedImages>({ menu: [], wineList: [] });
   const [cameraTarget, setCameraTarget] = useState<'menu' | 'wine' | null>(null);
   const [recommendations, setRecommendations] = useState<Omit<Recommendation, 'id' | 'session_id' | 'created_at'>[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [imageUrls, setImageUrls] = useState<{ menu: string | null; wineList: string | null }>({ menu: null, wineList: null });
+  const [imageUrls, setImageUrls] = useState<{ menu: string[]; wineList: string[] }>({ menu: [], wineList: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,15 +52,15 @@ export default function PlateAndGrapeApp() {
 
   const handleImageCaptured = (imageData: string) => {
     if (cameraTarget === 'menu') {
-      setCapturedImages((prev) => ({ ...prev, menu: imageData }));
+      setCapturedImages((prev) => ({ ...prev, menu: [...prev.menu, imageData] }));
     } else if (cameraTarget === 'wine') {
-      setCapturedImages((prev) => ({ ...prev, wineList: imageData }));
+      setCapturedImages((prev) => ({ ...prev, wineList: [...prev.wineList, imageData] }));
     }
-    setCameraTarget(null);
+    // Don't close camera here - let CameraCapture handle it
   };
 
   const handleMatch = async () => {
-    if (!capturedImages.menu || !capturedImages.wineList) return;
+    if (capturedImages.menu.length === 0 || capturedImages.wineList.length === 0) return;
 
     setLoading(true);
     setError(null);
@@ -68,17 +68,17 @@ export default function PlateAndGrapeApp() {
 
     try {
       const result = await generatePairingsAction({
-        menuImageBase64: capturedImages.menu,
-        wineListImageBase64: capturedImages.wineList,
+        menuImagesBase64: capturedImages.menu,
+        wineListImagesBase64: capturedImages.wineList,
         preferences,
       });
 
       if (result.success && result.recommendations) {
         setRecommendations(result.recommendations);
         setSessionId(result.sessionId || null);
-        setImageUrls({ 
-          menu: result.menuImageUrl || null, 
-          wineList: result.wineListImageUrl || null 
+        setImageUrls({
+          menu: result.menuImageUrls || [],
+          wineList: result.wineListImageUrls || [],
         });
         setScreen('results');
       } else {
@@ -95,7 +95,7 @@ export default function PlateAndGrapeApp() {
   };
 
   const handleRefine = async (refinement: string) => {
-    if (!sessionId || !imageUrls.menu || !imageUrls.wineList) return;
+    if (!sessionId || imageUrls.menu.length === 0 || imageUrls.wineList.length === 0) return;
 
     setLoading(true);
     setError(null);
@@ -105,8 +105,8 @@ export default function PlateAndGrapeApp() {
         sessionId,
         refinement,
         previousRecommendations: recommendations,
-        menuImageUrl: imageUrls.menu,
-        wineListImageUrl: imageUrls.wineList,
+        menuImageUrls: imageUrls.menu,
+        wineListImageUrls: imageUrls.wineList,
         preferences,
       });
 
@@ -129,9 +129,10 @@ export default function PlateAndGrapeApp() {
   };
 
   const resetCapture = () => {
-    setCapturedImages({ menu: null, wineList: null });
+    setCapturedImages({ menu: [], wineList: [] });
     setRecommendations([]);
     setSessionId(null);
+    setImageUrls({ menu: [], wineList: [] });
     setError(null);
     setScreen('capture');
   };
@@ -143,6 +144,7 @@ export default function PlateAndGrapeApp() {
         label={cameraTarget === 'menu' ? 'Food Menu' : 'Wine List'}
         onCapture={handleImageCaptured}
         onClose={() => setCameraTarget(null)}
+        existingCount={cameraTarget === 'menu' ? capturedImages.menu.length : capturedImages.wineList.length}
       />
     );
   }
@@ -224,6 +226,9 @@ export default function PlateAndGrapeApp() {
   }
 
   // Capture screen (default)
+  const hasMenuImages = capturedImages.menu.length > 0;
+  const hasWineImages = capturedImages.wineList.length > 0;
+
   return (
     <div className="min-h-screen bg-[#FAF7F2] flex flex-col">
       {/* Header */}
@@ -261,15 +266,13 @@ export default function PlateAndGrapeApp() {
           <CaptureButton
             label="Food Menu"
             icon="menu"
-            captured={!!capturedImages.menu}
-            thumbnail={capturedImages.menu || undefined}
+            images={capturedImages.menu}
             onClick={() => handleCapture('menu')}
           />
           <CaptureButton
             label="Wine List"
             icon="wine"
-            captured={!!capturedImages.wineList}
-            thumbnail={capturedImages.wineList || undefined}
+            images={capturedImages.wineList}
             onClick={() => handleCapture('wine')}
           />
         </div>
@@ -277,7 +280,7 @@ export default function PlateAndGrapeApp() {
         {/* Match button */}
         <Button
           onClick={handleMatch}
-          disabled={!capturedImages.menu || !capturedImages.wineList}
+          disabled={!hasMenuImages || !hasWineImages}
           size="lg"
           className="w-full"
         >
@@ -287,13 +290,16 @@ export default function PlateAndGrapeApp() {
         {/* Instructions */}
         <div className="mt-8 text-center text-[#9B9B9B]">
           <p className="text-sm">
-            {!capturedImages.menu && !capturedImages.wineList
+            {!hasMenuImages && !hasWineImages
               ? 'Take photos of the food menu and wine list'
-              : !capturedImages.menu
+              : !hasMenuImages
               ? 'Now capture the food menu'
-              : !capturedImages.wineList
+              : !hasWineImages
               ? 'Now capture the wine list'
               : 'Ready to find your perfect pairing!'}
+          </p>
+          <p className="text-xs mt-1 text-[#9B9B9B]/70">
+            Tip: Capture multiple pages if needed
           </p>
         </div>
       </main>
